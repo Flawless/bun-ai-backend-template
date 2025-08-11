@@ -1,0 +1,19 @@
+[test]
+# Test runner configuration
+coverage = true
+coverageThreshold = 80
+
+# Test timeout in milliseconds
+timeout = 5000
+
+# Test environment
+env = "test"
+
+# Performance settings
+bail = false
+
+[install]
+# Package manager settings
+cache = "node_modules/.cache/bun"
+lockfile = true
+production = false

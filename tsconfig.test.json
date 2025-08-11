@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Less strict settings for tests
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["tests/**/*"],
+  "exclude": ["node_modules", "dist", "src"]
+}

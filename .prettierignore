@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.min.js
+*.min.css
+.env*
+.DS_Store
+.git/
+.husky/_/

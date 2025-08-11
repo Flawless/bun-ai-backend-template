@@ -1,0 +1,57 @@
+{
+  "compilerOptions": {
+    // Language and Environment
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Emit
+    "outDir": "./dist",
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": true,
+    "removeComments": true,
+
+    // Interop Constraints
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
+    // Type Checking - Strict Mode
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+
+    // Additional Checks
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Advanced
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+
+    // Bun-specific optimizations
+    "types": ["bun-types"],
+    "jsx": "react-jsx",
+    "allowJs": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "coverage"],
+  "ts-node": {
+    "esm": true
+  }
+}
