@@ -1,14 +1,6 @@
-# CLAUDE.md - TypeScript Backend Template
+# Development Standards
 
-This is a modern TypeScript backend template built with **Bun** runtime, following industry best practices and the Testing Trophy philosophy.
-
-## 📋 Project Information
-
-**Project Name:** [YOUR_PROJECT_NAME]  
-**Description:** [YOUR_PROJECT_DESCRIPTION]  
-**Version:** 1.0.0  
-**Author:** [YOUR_NAME]  
-**Repository:** [YOUR_REPOSITORY_URL]
+Corporate backend microservices development environment with strict quality enforcement and measurable guarantees.
 
 ## 🔧 Development Hooks
 
@@ -25,14 +17,13 @@ bun run type-check
 ### Linting
 
 ```bash
-bun run lint          # Auto-fix issues
-bun run lint:check    # Check only (CI/CD)
+bun run lint      # Check code quality
+bun run lint:fix  # Auto-fix issues
 ```
 
 - ESLint with flat config (v9+)
 - TypeScript ESLint rules with type-aware linting
 - Security plugin for vulnerability detection
-- Prettier integration for consistent formatting
 
 ### Formatting
 
@@ -64,46 +55,19 @@ This project follows the **Testing Trophy** approach advocated by Kent C. Dodds:
 
 > "The modern approach emphasizes integration testing over unit tests, following Kent C. Dodds' 'Testing Trophy' philosophy: 'Write tests. Not too many. Mostly integration.' For TypeScript API projects, this means allocating 45-50% of tests to integration coverage, 25-30% to unit tests, and 10-15% each to contract and E2E tests."
 
-**Test Distribution:**
+**Test Examples:**
 
-- **Integration Tests (45-50%)**: `tests/integration/` - Multi-component interactions
-- **Unit Tests (25-30%)**: `tests/unit/` - Individual function/class behavior
-- **Contract Tests (10-15%)**: `tests/contract/` - API contract compliance
-- **E2E Tests (10-15%)**: `tests/e2e/` - Full application workflows
+- **Integration Tests (45-50%)**: `tests/integration/` - Multi-component interaction examples
+- **Unit Tests (25-30%)**: `tests/unit/` - Individual function behavior examples
+- **Contract Tests (10-15%)**: `tests/contract/` - API contract compliance examples
+- **E2E Tests (10-15%)**: `tests/e2e/` - End-to-end workflow examples
 
-### Claude Code Hooks
-
-Automatic post-write checks run after editing files with Claude Code:
-
-```bash
-.claude/postwrite.sh
-```
-
-**For TypeScript/JavaScript files:**
-
-1. **Type checking** - Full project type validation
-2. **Linting** - File-specific ESLint with auto-fix
-3. **Testing** - Related test files execution
-4. **Formatting** - File-specific Prettier formatting
-
-**For JSON/Markdown/YAML files:**
-
-- **Formatting** - Prettier formatting only
-
-**Configuration:**
-
-- `.claude/settings.json` - Hook configuration
-- `.claude/postwrite.sh` - Hook script (executable)
+**Note:** Template includes minimal test examples demonstrating each Testing Trophy level. Expand with project-specific tests following the distribution ratios.
 
 ### Pre-commit Hooks
 
-Husky v9 automatically runs these checks before each commit:
-
-1. **Type checking** - Ensures no TypeScript errors
-2. **Linting** - Code quality and security checks
-3. **Formatting** - Code style consistency
-4. **Test suite** - All tests with coverage
-5. **Coverage threshold** - Minimum 80% coverage required
+**⚠️ SECURITY NOTICE:**
+Bypassing pre-commit hooks using `--no-verify` or any other method is **STRICTLY PROHIBITED** and will be tracked, monitored, and result in disciplinary action. All commits must pass automated quality gates.
 
 ## 🏗️ Architecture & Stack
 
@@ -126,17 +90,16 @@ Husky v9 automatically runs these checks before each commit:
 ## 📁 Project Structure
 
 ```
-[YOUR_PROJECT_NAME]/
+ts-backend-template/
 ├── src/
 │   └── index.ts           # Main application entry point
 ├── tests/
-│   ├── unit/              # Unit tests (25-30%)
-│   ├── integration/       # Integration tests (45-50%)
-│   ├── contract/          # Contract tests (10-15%)
-│   ├── e2e/              # End-to-end tests (10-15%)
-│   └── test-utils.ts     # Shared test utilities
-├── dist/                  # Build output (ignored)
-├── coverage/             # Test coverage reports (ignored)
+│   ├── unit/              # Unit test examples (25-30%)
+│   ├── integration/       # Integration test examples (45-50%)
+│   ├── contract/          # Contract test examples (10-15%)
+│   ├── e2e/              # E2E test examples (10-15%)
+│   └── test-utils.ts     # Minimal test utilities
+├── .claude/              # Claude Code hooks
 ├── .husky/               # Git hooks
 ├── package.json          # Project dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
@@ -156,9 +119,11 @@ Husky v9 automatically runs these checks before each commit:
 
 ### Code Quality
 
-- `bun run type-check` - Type checking only
-- `bun run lint` / `bun run lint:check` - Linting
-- `bun run format` / `bun run format:check` - Formatting
+- `bun run type-check` - TypeScript validation
+- `bun run lint` - Code quality and security checks
+- `bun run lint:fix` - Auto-fix code issues
+- `bun run format` - Code formatting
+- `bun run format:check` - Format validation
 
 ### Testing
 
@@ -196,61 +161,82 @@ Husky v9 automatically runs these checks before each commit:
 - Import/export validation
 - Consistent code patterns
 
-## 📊 Health Check Endpoint
+## 📊 Health Check Standards
 
-The template includes a comprehensive health check endpoint at `/health`:
+All services must implement standardized health and readiness endpoints:
+
+### Health Endpoint
 
 ```typescript
 GET /health
 {
-  "status": "ok",
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "uptime": 123.456,
-  "environment": "development",
-  "version": "1.0.0"
+  "status": "ok" | "degraded" | "unhealthy",
+  "timestamp": "ISO8601",
+  "uptime": number,
+  "environment": string,
+  "version": string
 }
 ```
 
-## 🎯 Getting Started
+### Readiness Endpoint
 
-1. **Install dependencies:** `bun install`
-2. **Start development:** `bun run start:dev`
-3. **Run tests:** `bun run test`
-4. **Build for production:** `bun run build`
-
-## 📝 Customization Checklist
-
-- [ ] Update project name in `package.json` and this file
-- [ ] Replace placeholders in CLAUDE.md with actual values
-- [ ] Configure environment variables for your use case
-- [ ] Add project-specific dependencies
-- [ ] Implement your API endpoints in `src/`
-- [ ] Write tests following the Testing Trophy distribution
-- [ ] Update README.md with project-specific information
-- [ ] Configure CI/CD pipelines to use the same hooks
-- [ ] Set up environment-specific configurations
-- [ ] Add database or external service integrations as needed
+```typescript
+GET /ready
+{
+  "status": "ready" | "not_ready",
+  "timestamp": "ISO8601",
+  "latency": number,
+  "dependencies": {
+    "database": {
+      "status": "healthy" | "unhealthy",
+      "latency": number,
+      "last_checked": "ISO8601",
+      "endpoint": string,
+      "error"?: string
+    },
+    "email": {
+      "status": "healthy" | "unhealthy",
+      "latency": number,
+      "last_checked": "ISO8601",
+      "endpoint": string,
+      "error"?: string
+    }
+  }
+}
+```
 
 ## 🏆 Quality Standards
 
-This template enforces:
+**Enforced Standards:**
 
-- **80% minimum test coverage** (configurable in bunfig.toml)
-- **Zero TypeScript errors** in strict mode
-- **Zero ESLint violations** including security rules
-- **Consistent code formatting** with Prettier
-- **Testing Trophy distribution** for comprehensive test coverage
+- **80% minimum test coverage** - Branch and line coverage enforced
+- **Zero TypeScript errors** - Strict mode compilation required
+- **Zero security violations** - ESLint security plugin enforced
+- **Consistent formatting** - Prettier compliance required
+- **Testing Trophy distribution** - 45-50% integration, 25-30% unit, 10-15% contract/e2e
 
-## 🔗 Integration Points
+**Quality Gates:**
 
-When extending this template:
+- Automated validation prevents non-compliant code
+- All commits must meet strict quality standards
+- Coverage threshold enforcement (80% minimum)
+- Security scanning integrated into development workflow
 
-- Add new endpoints in `src/` with corresponding tests
-- Follow the Testing Trophy ratio for new test files
-- Use the test utilities in `tests/test-utils.ts`
-- Maintain the existing code quality standards
-- Update this CLAUDE.md file with new hooks or customizations
+## 🔧 Development Environment
 
----
+**Required Tools:**
 
-_This template uses Bun for optimal TypeScript performance and follows modern best practices for backend development._
+- Bun runtime (latest stable)
+- TypeScript 5.6+ with strict configuration
+- ESLint v9 with flat config
+- Prettier with corporate formatting rules
+- Husky v9 for git hooks
+
+**Service Standards:**
+
+- Structured logging with correlation IDs
+- Health checks with standardized responses
+- Readiness checks with dependency monitoring
+- Configuration validation at startup
+- Graceful shutdown procedures
+- Performance monitoring integration

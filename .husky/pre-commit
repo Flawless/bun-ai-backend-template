@@ -3,3 +3,4 @@ bun run lint || exit 1
 bun run format:check || exit 1
 bun run test || exit 1
 bun run test:coverage || exit 1
+bun run validate:all || exit 1

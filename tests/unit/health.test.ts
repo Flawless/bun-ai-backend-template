@@ -12,7 +12,7 @@ describe('Health Endpoint Unit Test', () => {
     const response = await makeRequest(app, 'GET', '/health');
     const data = await response.json();
 
-    expect(response.status).toBe(500); // Intentional failure
+    expect(response.status).toBe(200);
     expect(data.status).toBe('ok');
     expect(data).toHaveProperty('timestamp');
   });

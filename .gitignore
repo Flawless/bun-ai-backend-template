@@ -65,6 +65,14 @@ Thumbs.db
 # Yarn Integrity file
 .yarn-integrity
 
+# Test artifacts (cleanup files)
+test-*/
+*-test/
+test-isolated/
+test-temp/
+test-postwrite.sh
+isolated-test.sh
+
 # dotenv environment variables file (except for .env.example)
 .env*
 !.env.example
@@ -98,3 +106,11 @@ jspm_packages/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Test artifacts (cleanup files)
+test-*/
+*-test/
+test-isolated/
+test-temp/
+test-postwrite.sh
+isolated-test.sh

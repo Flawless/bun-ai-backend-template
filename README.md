@@ -25,7 +25,7 @@ A modern, production-ready TypeScript backend template built with **Bun** runtim
 
 ```bash
 # Clone the template (or use as template)
-git clone <repository-url>
+git clone https://github.com/YOUR_USERNAME/ts-backend-template.git
 cd ts-backend-template
 
 # Install dependencies
@@ -65,13 +65,13 @@ bun run pre-commit
 
 ### Code Quality Commands
 
-| Command                | Description                      |
-| ---------------------- | -------------------------------- |
-| `bun run type-check`   | Run TypeScript type checking     |
-| `bun run lint`         | Run ESLint with auto-fix         |
-| `bun run lint:check`   | Run ESLint without auto-fix (CI) |
-| `bun run format`       | Format code with Prettier        |
-| `bun run format:check` | Check code formatting (CI)       |
+| Command                | Description                  |
+| ---------------------- | ---------------------------- |
+| `bun run type-check`   | Run TypeScript type checking |
+| `bun run lint`         | Run ESLint (check only)      |
+| `bun run lint:fix`     | Run ESLint with auto-fix     |
+| `bun run format`       | Format code with Prettier    |
+| `bun run format:check` | Check code formatting (CI)   |
 
 ### Testing Commands
 
@@ -355,7 +355,7 @@ MIT License - see LICENSE file for details.
 ## 🙏 Acknowledgments
 
 - **Bun Team** - Amazing TypeScript runtime
-- **Hono** - Lightweight, performant web framework
+- **Elysia** - Fast, end-to-end type safety web framework
 - **Kent C. Dodds** - Testing Trophy philosophy
 - **TypeScript Team** - Excellent type system
 - **Open Source Community** - Supporting tools and libraries
@@ -365,7 +365,7 @@ MIT License - see LICENSE file for details.
 ## 🔗 Related Resources
 
 - [Bun Documentation](https://bun.sh/docs)
-- [Hono Framework](https://hono.dev)
+- [Elysia Framework](https://elysiajs.com)
 - [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [ESLint Flat Config](https://eslint.org/docs/latest/use/configure/configuration-files)
