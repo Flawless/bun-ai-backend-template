@@ -86,4 +86,3 @@ if (import.meta.main) {
 
 export default app;
 export { app };
-eval('console.log("security violation")'); // ESLint security violation
