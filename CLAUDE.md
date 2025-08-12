@@ -240,3 +240,11 @@ GET /ready
 - Configuration validation at startup
 - Graceful shutdown procedures
 - Performance monitoring integration
+
+## 📚 Documentation Structure
+
+This project uses a three-tier documentation approach:
+
+- **@concepts/README.md** - High-level conceptual documentation for domain models, system principles, and business workflows
+- **@adr/README.md** - Architecture Decision Records documenting technical choices with context and rationale
+- **@tasks/README.md** - Implementation-focused task documentation with step-by-step guidance and phases
