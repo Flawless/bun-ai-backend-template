@@ -1,7 +1,7 @@
 {
   "name": "ts-backend-template",
   "version": "1.0.0",
-  "description": "Modern TypeScript backend template with Bun runtime",
+  "description": "Modern TypeScript backend template built with Bun runtime, Elysia framework, and Testing Trophy philosophy",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -9,9 +9,9 @@
     "start:dev": "bun run --hot src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "type-check": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
+    "lint:check": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
-    "lint:check": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
@@ -23,19 +23,33 @@
     "test:watch": "bun test --watch",
     "clean": "rm -rf dist coverage",
     "prepare": "husky",
-    "pre-commit": "bun run type-check && bun run lint:check && bun run format:check && bun run test:coverage"
+    "pre-commit": "bun run type-check && bun run lint && bun run format:check && bun run test:coverage"
   },
   "keywords": [
     "typescript",
     "bun",
     "backend",
     "api",
-    "template"
+    "template",
+    "elysia",
+    "testing-trophy",
+    "eslint",
+    "prettier",
+    "husky"
   ],
-  "author": "",
+  "author": "Template",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/example/ts-backend-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/example/ts-backend-template/issues"
+  },
+  "homepage": "https://github.com/example/ts-backend-template#readme",
   "dependencies": {
-    "elysia": "^1.1.12"
+    "elysia": "^1.1.12",
+    "pino": "^9.4.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -45,6 +59,7 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-security": "^3.0.1",
     "husky": "^9.1.6",
+    "pino-pretty": "^13.0.0",
     "prettier": "^3.3.3",
     "typescript": "^5.6.2"
   },
