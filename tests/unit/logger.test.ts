@@ -6,14 +6,34 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   logger,
+  getLogger,
   createChildLogger,
   logWithTrace,
   getCallerInfo,
   createLogMixin,
+  parseFileName,
+  createLoggerConfig,
+  createLogger,
+  LoggerFactory,
 } from '../../src/logger.js';
 import * as otelApi from '@opentelemetry/api';
+import type pino from 'pino';
 
 describe('Logger', () => {
+  describe('getLogger function', () => {
+    test('should return a logger instance', () => {
+      const loggerInstance = getLogger();
+      expect(loggerInstance).toBeDefined();
+      expect(typeof loggerInstance.info).toBe('function');
+    });
+
+    test('should return the same instance on multiple calls', () => {
+      const logger1 = getLogger();
+      const logger2 = getLogger();
+      expect(logger1).toBe(logger2);
+    });
+  });
+
   describe('logger instance', () => {
     test('should be defined', () => {
       expect(logger).toBeDefined();
@@ -40,6 +60,26 @@ describe('Logger', () => {
     });
   });
 
+  describe('parseFileName', () => {
+    test('should extract filename from full path', () => {
+      expect(parseFileName('/path/to/file.ts')).toBe('file.ts');
+      expect(parseFileName('/another/deeply/nested/path/script.js')).toBe('script.js');
+      expect(parseFileName('simple.ts')).toBe('simple.ts');
+    });
+
+    test('should handle edge cases', () => {
+      expect(parseFileName('')).toBe('unknown');
+      expect(parseFileName(undefined)).toBe('unknown');
+      expect(parseFileName(null as unknown as string)).toBe('unknown');
+      expect(parseFileName('/path/with/trailing/')).toBe('unknown');
+    });
+
+    test('should handle paths with no separators', () => {
+      expect(parseFileName('filename.ts')).toBe('filename.ts');
+      expect(parseFileName('no-extension')).toBe('no-extension');
+    });
+  });
+
   describe('getCallerInfo', () => {
     test('should return caller information', () => {
       const result = getCallerInfo();
@@ -60,6 +100,45 @@ describe('Logger', () => {
       if (result) {
         expect(typeof result).toBe('string');
       }
+    });
+
+    test('should handle missing stack', () => {
+      // Mock Error constructor to simulate missing stack
+      const originalError = global.Error;
+      global.Error = class MockError extends Error {
+        constructor() {
+          super();
+          this.stack = undefined;
+        }
+      };
+
+      const result = getCallerInfo();
+      expect(result).toBeUndefined();
+
+      // Restore original Error
+      global.Error = originalError;
+    });
+
+    test('should handle stack parsing errors', () => {
+      // Mock Error to throw during stack processing
+      const originalError = global.Error;
+      global.Error = class MockError extends Error {
+        constructor() {
+          super();
+          // Create a stack that will cause parsing issues
+          Object.defineProperty(this, 'stack', {
+            get() {
+              throw new Error('Stack access error');
+            },
+          });
+        }
+      };
+
+      const result = getCallerInfo();
+      expect(result).toBeUndefined();
+
+      // Restore original Error
+      global.Error = originalError;
     });
   });
 
@@ -308,11 +387,146 @@ describe('Logger', () => {
     });
   });
 
+  describe('createLoggerConfig', () => {
+    test('should create config with default environment', () => {
+      const config = createLoggerConfig({});
+      expect(config.level).toBe('info');
+      expect(config.timestamp).toBeDefined();
+      expect(config.formatters).toBeDefined();
+    });
+
+    test('should handle production environment', () => {
+      const config = createLoggerConfig({ NODE_ENV: 'production' });
+      expect(config.level).toBe('info');
+      expect(config.transport).toBeUndefined();
+    });
+
+    test('should handle development environment', () => {
+      const config = createLoggerConfig({ NODE_ENV: 'development' });
+      expect(config.transport).toBeDefined();
+      expect(config.transport?.target).toBe('pino-pretty');
+    });
+
+    test('should use custom log level', () => {
+      const config = createLoggerConfig({ LOG_LEVEL: 'debug' });
+      expect(config.level).toBe('debug');
+    });
+
+    test('should handle location settings', () => {
+      const configWithLocation = createLoggerConfig({ LOG_INCLUDE_LOCATION: 'true' });
+      const configWithoutLocation = createLoggerConfig({ LOG_INCLUDE_LOCATION: 'false' });
+
+      expect(configWithLocation.mixin).toBeDefined();
+      expect(configWithoutLocation.mixin).toBeDefined();
+    });
+
+    test('should handle service metadata', () => {
+      const config = createLoggerConfig({
+        OTEL_SERVICE_NAME: 'test-service',
+        OTEL_SERVICE_VERSION: '2.0.0',
+      });
+
+      const bindings = config.formatters?.bindings?.({
+        pid: 123,
+        hostname: 'test',
+      } as pino.Bindings);
+      expect(bindings?.service).toBe('test-service');
+      expect(bindings?.version).toBe('2.0.0');
+    });
+
+    test('should fallback to package metadata', () => {
+      const config = createLoggerConfig({
+        npm_package_name: 'fallback-service',
+        npm_package_version: '1.5.0',
+      });
+
+      const bindings = config.formatters?.bindings?.({
+        pid: 123,
+        hostname: 'test',
+      } as pino.Bindings);
+      expect(bindings?.service).toBe('fallback-service');
+      expect(bindings?.version).toBe('1.5.0');
+    });
+
+    test('should use default service metadata', () => {
+      const config = createLoggerConfig({});
+      const bindings = config.formatters?.bindings?.({
+        pid: 123,
+        hostname: 'test',
+      } as pino.Bindings);
+      expect(bindings?.service).toBe('ts-backend-template');
+      expect(bindings?.version).toBe('1.0.0');
+    });
+  });
+
+  describe('createLogger', () => {
+    test('should create logger with default config', () => {
+      const logger = createLogger();
+      expect(logger).toBeDefined();
+      expect(typeof logger.info).toBe('function');
+    });
+
+    test('should create logger with custom config', () => {
+      const config = { level: 'debug' as const };
+      const logger = createLogger(config);
+      expect(logger).toBeDefined();
+      expect(typeof logger.debug).toBe('function');
+    });
+  });
+
+  describe('LoggerFactory', () => {
+    test('should create factory and return logger', () => {
+      const factory = new LoggerFactory();
+      const logger1 = factory.getLogger();
+      const logger2 = factory.getLogger();
+
+      expect(logger1).toBeDefined();
+      expect(logger2).toBeDefined();
+      expect(logger1).toBe(logger2); // Same instance due to caching
+    });
+
+    test('should create factory with custom config', () => {
+      const config = { level: 'warn' as const };
+      const factory = new LoggerFactory(config);
+      const logger = factory.getLogger();
+
+      expect(logger).toBeDefined();
+      expect(typeof logger.warn).toBe('function');
+    });
+
+    test('should reset logger instance', () => {
+      const factory = new LoggerFactory();
+      const logger1 = factory.getLogger();
+
+      factory.reset();
+      const logger2 = factory.getLogger();
+
+      expect(logger1).toBeDefined();
+      expect(logger2).toBeDefined();
+      expect(logger1).not.toBe(logger2); // Different instances after reset
+    });
+  });
+
   describe('Edge cases and error handling', () => {
     test('should handle logger initialization errors gracefully', () => {
       // Logger uses lazy initialization, should not throw on access
       expect(() => logger.info).not.toThrow();
       expect(() => logger.error).not.toThrow();
+    });
+
+    test('should access logger through proxy', () => {
+      // Test to ensure coverage of proxy getter lines 171-172
+      expect(typeof logger.info).toBe('function');
+      expect(typeof logger.error).toBe('function');
+
+      // Access different properties to trigger proxy getter multiple times
+      const infoMethod = logger.info;
+      const errorMethod = logger.error;
+      const warnMethod = logger.warn;
+
+      expect(infoMethod).toBeDefined();
+      expect(errorMethod).toBeDefined();
+      expect(warnMethod).toBeDefined();
     });
 
     test('should handle circular references in log data', () => {

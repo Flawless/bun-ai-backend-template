@@ -9,6 +9,16 @@ import pino from 'pino';
 import { getTraceContext } from './observability.js';
 
 /**
+ * Parse filename from full path
+ * Exported for testing
+ */
+export function parseFileName(filePath: string | undefined): string {
+  if (!filePath) return 'unknown';
+  const fileName = filePath.split('/').pop();
+  return fileName || 'unknown';
+}
+
+/**
  * Get caller information for debugging
  * Returns file name, function name, and line number
  * Exported for direct testing
@@ -28,7 +38,7 @@ export function getCallerInfo(): string | undefined {
         if (match) {
           const [, file, lineNum] = match;
           // Get just the filename, not the full path
-          const fileName = file?.split('/').pop() || file || 'unknown';
+          const fileName = parseFileName(file);
           return `${fileName}:${lineNum}`;
         }
       }
@@ -65,14 +75,25 @@ export function createLogMixin(includeLocation = true): Record<string, unknown> 
 }
 
 /**
- * Create enhanced logger with trace correlation support
+ * Create logger configuration object
+ * Exported for testing
  */
-function createLogger() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const includeLocation = process.env.LOG_INCLUDE_LOCATION !== 'false';
+export function createLoggerConfig(
+  env: {
+    NODE_ENV?: string;
+    LOG_LEVEL?: string;
+    LOG_INCLUDE_LOCATION?: string;
+    OTEL_SERVICE_NAME?: string;
+    npm_package_name?: string;
+    OTEL_SERVICE_VERSION?: string;
+    npm_package_version?: string;
+  } = process.env
+): pino.LoggerOptions {
+  const isProduction = env.NODE_ENV === 'production';
+  const includeLocation = env.LOG_INCLUDE_LOCATION !== 'false';
 
-  return pino({
-    level: process.env.LOG_LEVEL || 'info',
+  return {
+    level: env.LOG_LEVEL || 'info',
     // Enable pretty printing in development
     ...(isProduction
       ? {}
@@ -99,31 +120,63 @@ function createLogger() {
         return {
           pid: bindings.pid,
           hostname: bindings.hostname,
-          service:
-            process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template',
-          version: process.env.OTEL_SERVICE_VERSION || process.env.npm_package_version || '1.0.0',
+          service: env.OTEL_SERVICE_NAME || env.npm_package_name || 'ts-backend-template',
+          version: env.OTEL_SERVICE_VERSION || env.npm_package_version || '1.0.0',
         };
       },
     },
-  });
+  };
 }
 
 /**
- * Lazy logger initialization to avoid import-time errors
+ * Create enhanced logger with trace correlation support
+ * Exported for testing
  */
-let _logger: pino.Logger | null = null;
+export function createLogger(config?: pino.LoggerOptions): pino.Logger {
+  const loggerConfig = config || createLoggerConfig();
+  return pino(loggerConfig);
+}
+
+/**
+ * Logger factory with lazy initialization
+ * Exported for testing
+ */
+export class LoggerFactory {
+  private _logger: pino.Logger | null = null;
+  private _config?: pino.LoggerOptions;
+
+  constructor(config?: pino.LoggerOptions) {
+    if (config !== undefined) {
+      this._config = config;
+    }
+  }
+
+  getLogger(): pino.Logger {
+    if (!this._logger) {
+      this._logger = createLogger(this._config);
+    }
+    return this._logger;
+  }
+
+  reset(): void {
+    this._logger = null;
+  }
+}
+
+// Global factory instance
+const globalLoggerFactory = new LoggerFactory();
+
+/**
+ * Get the global logger instance with trace correlation
+ */
+export function getLogger(): pino.Logger {
+  return globalLoggerFactory.getLogger();
+}
 
 /**
  * Global logger instance with trace correlation
  */
-export const logger = new Proxy({} as pino.Logger, {
-  get(_target, prop) {
-    if (!_logger) {
-      _logger = createLogger();
-    }
-    return _logger[prop as keyof pino.Logger];
-  },
-});
+export const logger = getLogger();
 
 /**
  * Create child logger with additional context
