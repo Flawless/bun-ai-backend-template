@@ -1,329 +1,341 @@
 /**
- * Unit tests for logger error conditions and edge cases
- *
- * Tests error handling in logger functionality, caller detection, and trace correlation
+ * Unit tests for logger module
+ * Tests all exported functions and logger functionality
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import {
+  logger,
+  createChildLogger,
+  logWithTrace,
+  getCallerInfo,
+  createLogMixin,
+} from '../../src/logger.js';
+import * as otelApi from '@opentelemetry/api';
 
-describe('Logger Unit Tests', () => {
-  let originalEnv: Record<string, string | undefined>;
+describe('Logger', () => {
+  describe('logger instance', () => {
+    test('should be defined', () => {
+      expect(logger).toBeDefined();
+    });
 
-  beforeEach(() => {
-    // Store original environment variables
-    originalEnv = {
-      NODE_ENV: process.env.NODE_ENV,
-      LOG_LEVEL: process.env.LOG_LEVEL,
-      LOG_INCLUDE_LOCATION: process.env.LOG_INCLUDE_LOCATION,
-      OTEL_SERVICE_NAME: process.env.OTEL_SERVICE_NAME,
-      npm_package_name: process.env.npm_package_name,
-      npm_package_version: process.env.npm_package_version,
-    };
+    test('should have standard log methods', () => {
+      expect(typeof logger.info).toBe('function');
+      expect(typeof logger.error).toBe('function');
+      expect(typeof logger.warn).toBe('function');
+      expect(typeof logger.debug).toBe('function');
+    });
+
+    test('should log messages at different levels', () => {
+      // These don't throw, just verify they can be called
+      expect(() => logger.info('Info message')).not.toThrow();
+      expect(() => logger.warn('Warning message')).not.toThrow();
+      expect(() => logger.error('Error message')).not.toThrow();
+      expect(() => logger.debug('Debug message')).not.toThrow();
+    });
+
+    test('should handle structured logging', () => {
+      expect(() => logger.info({ userId: 123 }, 'User action')).not.toThrow();
+      expect(() => logger.error({ error: new Error('Test') }, 'Error occurred')).not.toThrow();
+    });
   });
 
-  afterEach(() => {
-    // Restore original environment variables
-    // Restore original environment variables safely
-    for (const [envKey, envValue] of Object.entries(originalEnv)) {
-      if (envValue === undefined) {
-        delete process.env[envKey as keyof typeof process.env];
-      } else {
-        process.env[envKey as keyof typeof process.env] = envValue;
-      }
-    }
-
-    // Clear module cache to ensure fresh imports
-    // Note: Module cache clearing not available in Bun ESM context
-  });
-
-  describe('Logger Configuration', () => {
-    it('should handle missing trace context gracefully', async () => {
-      // Mock getTraceContext to return undefined
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        // Should not throw when trace context is unavailable
-        expect(() => {
-          logger.info('Test message without trace context');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
+  describe('getCallerInfo', () => {
+    test('should return caller information', () => {
+      const result = getCallerInfo();
+      // May return undefined or string depending on stack availability
+      if (result) {
+        expect(typeof result).toBe('string');
+        // Should contain test file reference if available
+        expect(result).toContain('.ts');
       }
     });
 
-    it('should handle trace context errors gracefully', async () => {
-      // Clear module cache first
-      // Note: Module cache clearing not available in Bun ESM context
-
-      // Mock getTraceContext to return undefined to avoid errors
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        // Should not throw when trace context is unavailable
-        expect(() => {
-          logger.info('Test message with trace context error');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
+    test('should handle various stack scenarios', () => {
+      function testFunction() {
+        return getCallerInfo();
       }
-    });
-
-    it('should handle missing environment variables in logger creation', async () => {
-      // Clear module cache first
-      // Note: Module cache clearing not available in Bun ESM context
-
-      delete process.env.OTEL_SERVICE_NAME;
-      delete process.env.npm_package_name;
-      delete process.env.npm_package_version;
-      delete process.env.LOG_LEVEL;
-
-      // Mock getTraceContext to return undefined to avoid errors
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        expect(logger).toBeDefined();
-        expect(() => {
-          logger.info('Test with missing env vars');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
+      const result = testFunction();
+      // May be undefined or string
+      if (result) {
+        expect(typeof result).toBe('string');
       }
     });
   });
 
-  describe('Caller Information Detection', () => {
-    it('should handle stack trace parsing errors gracefully', async () => {
-      // Clear module cache first
-      // Note: Module cache clearing not available in Bun ESM context
+  describe('createLogMixin', () => {
+    let originalGetActiveSpan: typeof otelApi.trace.getActiveSpan;
 
-      process.env.LOG_INCLUDE_LOCATION = 'true';
-
-      // Mock getTraceContext to return undefined to avoid errors
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      // Mock Error stack behavior
-      const _originalStackDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
-      const _originalPrepareStackTrace = Error.prepareStackTrace;
-      // Simply skip stack processing in tests
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        // Should not throw when stack is undefined
-        expect(() => {
-          logger.info('Test message with undefined stack');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
-        // Restore original stack property
-        // Stack restoration not needed in this test approach
-      }
+    beforeEach(() => {
+      originalGetActiveSpan = otelApi.trace.getActiveSpan;
     });
 
-    it('should handle malformed stack traces', async () => {
-      // Clear module cache first
-      // Note: Module cache clearing not available in Bun ESM context
-
-      process.env.LOG_INCLUDE_LOCATION = 'true';
-
-      // Mock getTraceContext to return undefined to avoid errors
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      // Mock Error stack behavior - skip stack processing in tests
-      const _originalStackDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
-      // Skip Error prototype modification for security compliance
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        // Should not throw when stack is malformed
-        expect(() => {
-          logger.info('Test message with malformed stack');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
-        // Restore original stack property
-        // Stack restoration not needed in this test approach
-      }
+    afterEach(() => {
+      otelApi.trace.getActiveSpan = originalGetActiveSpan;
     });
 
-    it('should skip node_modules entries in stack trace', async () => {
-      // Clear module cache first
-      // Note: Module cache clearing not available in Bun ESM context
-
-      process.env.LOG_INCLUDE_LOCATION = 'true';
-
-      // Mock getTraceContext to return undefined to avoid errors
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      // Mock Error stack behavior - skip stack processing in tests
-      const _originalStackDescriptor = Object.getOwnPropertyDescriptor(Error.prototype, 'stack');
-      // Skip Error prototype modification for security compliance
-
-      try {
-        const { logger } = await import('../../src/logger.js');
-
-        // Should not throw and should skip node_modules
-        expect(() => {
-          logger.info('Test message skipping node_modules');
-        }).not.toThrow();
-      } finally {
-        getTraceContextSpy.mockRestore();
-        // Restore original stack property
-        // Stack restoration not needed in this test approach
-      }
+    test('should create mixin object', () => {
+      const mixin = createLogMixin();
+      expect(typeof mixin).toBe('object');
     });
 
-    it('should handle caller info detection errors gracefully', async () => {
-      // This test is too complex and causes stack overflow, skip it
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('Child Logger Functionality', () => {
-    it('should create child logger with additional context', async () => {
-      const { createChildLogger } = await import('../../src/logger.js');
-
-      const childLogger = createChildLogger({ request_id: 'test-123', user_id: 'user-456' });
-
-      expect(childLogger).toBeDefined();
-      expect(() => {
-        childLogger.info('Child logger test');
-      }).not.toThrow();
+    test('should return non-null object', () => {
+      const mixin = createLogMixin();
+      expect(mixin).not.toBeNull();
+      expect(typeof mixin).toBe('object');
     });
 
-    it('should handle empty context in child logger', async () => {
-      const { createChildLogger } = await import('../../src/logger.js');
+    test('should include trace context when span is active', () => {
+      const mockSpan = {
+        spanContext: () => ({
+          traceId: 'test-trace-123',
+          spanId: 'test-span-456',
+          traceFlags: 1,
+          isRemote: false,
+        }),
+      };
 
-      const childLogger = createChildLogger({});
+      // Mock getActiveSpan to return our mock span
+      otelApi.trace.getActiveSpan = () => mockSpan as otelApi.Span;
 
-      expect(childLogger).toBeDefined();
-      expect(() => {
-        childLogger.info('Child logger with empty context');
-      }).not.toThrow();
+      const result = createLogMixin(false); // Disable location to isolate trace testing
+
+      expect(result.trace_id).toBe('test-trace-123');
+      expect(result.span_id).toBe('test-span-456');
+    });
+
+    test('should not include trace context when no span is active', () => {
+      // Mock getActiveSpan to return undefined
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      const result = createLogMixin(false);
+
+      expect(result.trace_id).toBeUndefined();
+      expect(result.span_id).toBeUndefined();
+    });
+
+    test('should include caller info when enabled', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      const result = createLogMixin(true);
+
+      expect(result.caller).toBeDefined();
+      expect(typeof result.caller).toBe('string');
+    });
+
+    test('should not include caller info when disabled', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      const result = createLogMixin(false);
+
+      expect(result.caller).toBeUndefined();
+    });
+
+    test('should handle both trace and caller together', () => {
+      const mockSpan = {
+        spanContext: () => ({
+          traceId: 'combined-trace',
+          spanId: 'combined-span',
+          traceFlags: 1,
+          isRemote: false,
+        }),
+      };
+
+      otelApi.trace.getActiveSpan = () => mockSpan as otelApi.Span;
+
+      const result = createLogMixin(true);
+
+      expect(result.trace_id).toBe('combined-trace');
+      expect(result.span_id).toBe('combined-span');
+      expect(result.caller).toBeDefined();
+    });
+
+    test('should handle span with invalid context', () => {
+      const mockSpan = {
+        spanContext: () => ({
+          traceId: '00000000000000000000000000000000', // Invalid trace ID
+          spanId: '0000000000000000', // Invalid span ID
+          traceFlags: 0,
+          isRemote: false,
+        }),
+      };
+
+      otelApi.trace.getActiveSpan = () => mockSpan as otelApi.Span;
+
+      const result = createLogMixin(false);
+
+      // Current implementation doesn't filter invalid IDs, it passes them through
+      expect(result.trace_id).toBe('00000000000000000000000000000000');
+      expect(result.span_id).toBe('0000000000000000');
     });
   });
 
-  describe('LogWithTrace Function', () => {
-    it('should handle all log levels correctly', async () => {
-      const { logWithTrace } = await import('../../src/logger.js');
-
-      // Test all supported log levels
-      expect(() => {
-        logWithTrace('debug', 'Debug message');
-        logWithTrace('info', 'Info message');
-        logWithTrace('warn', 'Warning message');
-        logWithTrace('error', 'Error message');
-      }).not.toThrow();
+  describe('createChildLogger', () => {
+    test('should create child logger with context', () => {
+      const child = createChildLogger({ requestId: 'req-123' });
+      expect(child).toBeDefined();
+      expect(typeof child.info).toBe('function');
     });
 
-    it('should handle invalid log level gracefully', async () => {
-      const { logWithTrace } = await import('../../src/logger.js');
-
-      // Test with invalid log level - should default to info
-      expect(() => {
-        logWithTrace('invalid' as 'info', 'Message with invalid level');
-      }).not.toThrow();
-    });
-
-    it('should handle missing trace context in logWithTrace', async () => {
-      // Mock getTraceContext to return undefined
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue(
-        undefined
-      );
-
-      const { logWithTrace } = await import('../../src/logger.js');
-
-      expect(() => {
-        logWithTrace('info', 'Message without trace context', { extra: 'data' });
-      }).not.toThrow();
-
-      getTraceContextSpy.mockRestore();
-    });
-
-    it('should merge trace context with provided data', async () => {
-      // Mock getTraceContext to return test context
-      const observabilityModule = await import('../../src/observability.js');
-      const getTraceContextSpy = spyOn(observabilityModule, 'getTraceContext').mockReturnValue({
-        traceId: 'test-trace-id',
-        spanId: 'test-span-id',
+    test('should create child with multiple context fields', () => {
+      const child = createChildLogger({
+        userId: 'user-456',
+        sessionId: 'session-789',
+        action: 'login',
       });
-
-      const { logWithTrace } = await import('../../src/logger.js');
-
-      expect(() => {
-        logWithTrace('info', 'Message with trace context', { custom: 'data' });
-      }).not.toThrow();
-
-      getTraceContextSpy.mockRestore();
+      expect(child).toBeDefined();
+      expect(() => child.info('Child logger test')).not.toThrow();
     });
 
-    it('should handle logWithTrace without additional data', async () => {
-      const { logWithTrace } = await import('../../src/logger.js');
+    test('should handle empty context', () => {
+      const child = createChildLogger({});
+      expect(child).toBeDefined();
+      expect(typeof child.info).toBe('function');
+    });
 
-      expect(() => {
-        logWithTrace('info', 'Message without additional data');
-      }).not.toThrow();
+    test('should handle nested objects in context', () => {
+      const child = createChildLogger({
+        user: {
+          id: 123,
+          name: 'Test User',
+        },
+        metadata: {
+          timestamp: Date.now(),
+        },
+      });
+      expect(child).toBeDefined();
+      expect(() => child.info('Nested context test')).not.toThrow();
     });
   });
 
-  describe('Production vs Development Configuration', () => {
-    it('should configure differently for production environment', async () => {
-      process.env.NODE_ENV = 'production';
+  describe('logWithTrace', () => {
+    let originalGetActiveSpan: typeof otelApi.trace.getActiveSpan;
 
-      const { logger } = await import('../../src/logger.js');
-
-      expect(logger).toBeDefined();
-      expect(() => {
-        logger.info('Production environment test');
-      }).not.toThrow();
+    beforeEach(() => {
+      originalGetActiveSpan = otelApi.trace.getActiveSpan;
     });
 
-    it('should handle LOG_INCLUDE_LOCATION=false', async () => {
-      process.env.LOG_INCLUDE_LOCATION = 'false';
-
-      const { logger } = await import('../../src/logger.js');
-
-      expect(logger).toBeDefined();
-      expect(() => {
-        logger.info('Test without location info');
-      }).not.toThrow();
+    afterEach(() => {
+      otelApi.trace.getActiveSpan = originalGetActiveSpan;
     });
 
-    it('should use custom log level when specified', async () => {
-      process.env.LOG_LEVEL = 'debug';
+    test('should log with trace context', () => {
+      const mockSpan = {
+        spanContext: () => ({
+          traceId: 'log-trace-123',
+          spanId: 'log-span-456',
+          traceFlags: 1,
+          isRemote: false,
+        }),
+      };
 
-      const { logger } = await import('../../src/logger.js');
+      otelApi.trace.getActiveSpan = () => mockSpan as otelApi.Span;
 
-      expect(logger).toBeDefined();
-      expect(() => {
-        logger.debug('Debug level test');
-      }).not.toThrow();
+      expect(() => logWithTrace('info', 'Test message with trace')).not.toThrow();
+    });
+
+    test('should log without trace context', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      expect(() => logWithTrace('info', 'Test message without trace')).not.toThrow();
+    });
+
+    test('should log at different levels', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      expect(() => logWithTrace('info', 'Info message')).not.toThrow();
+      expect(() => logWithTrace('warn', 'Warning message')).not.toThrow();
+      expect(() => logWithTrace('error', 'Error message')).not.toThrow();
+      expect(() => logWithTrace('debug', 'Debug message')).not.toThrow();
+    });
+
+    test('should handle invalid log level', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      // Invalid level should default to info
+      expect(() =>
+        logWithTrace(
+          'invalid' as unknown as 'info' | 'warn' | 'error' | 'debug',
+          'Message with invalid level'
+        )
+      ).not.toThrow();
+    });
+
+    test('should log with additional data', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      expect(() =>
+        logWithTrace('info', 'Message with data', {
+          userId: 123,
+          action: 'test',
+        })
+      ).not.toThrow();
+    });
+
+    test('should handle null additional data', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      expect(() =>
+        logWithTrace('info', 'Message with null data', null as unknown as Record<string, unknown>)
+      ).not.toThrow();
+    });
+
+    test('should handle undefined additional data', () => {
+      otelApi.trace.getActiveSpan = () => undefined;
+
+      expect(() => logWithTrace('info', 'Message with undefined data', undefined)).not.toThrow();
+    });
+
+    test('should log with trace and additional data', () => {
+      const mockSpan = {
+        spanContext: () => ({
+          traceId: 'full-trace',
+          spanId: 'full-span',
+          traceFlags: 1,
+          isRemote: false,
+        }),
+      };
+
+      otelApi.trace.getActiveSpan = () => mockSpan as otelApi.Span;
+
+      expect(() =>
+        logWithTrace('error', 'Full context error', {
+          error: new Error('Test error'),
+          code: 'TEST_ERROR',
+          timestamp: Date.now(),
+        })
+      ).not.toThrow();
+    });
+  });
+
+  describe('Edge cases and error handling', () => {
+    test('should handle logger initialization errors gracefully', () => {
+      // Logger uses lazy initialization, should not throw on access
+      expect(() => logger.info).not.toThrow();
+      expect(() => logger.error).not.toThrow();
+    });
+
+    test('should handle circular references in log data', () => {
+      const circular: Record<string, unknown> = { name: 'test' };
+      circular.self = circular;
+
+      expect(() => logger.info(circular, 'Circular reference test')).not.toThrow();
+    });
+
+    test('should handle very long messages', () => {
+      const longMessage = 'x'.repeat(10000);
+      expect(() => logger.info(longMessage)).not.toThrow();
+    });
+
+    test('should handle special characters in messages', () => {
+      expect(() => logger.info('Message with special chars: \n\t\r\0')).not.toThrow();
+      expect(() => logger.info('Unicode: 你好世界 🌍')).not.toThrow();
+    });
+
+    test('should handle error objects', () => {
+      const error = new Error('Test error');
+      expect(() => logger.error(error)).not.toThrow();
+      expect(() => logger.error({ err: error }, 'Error with context')).not.toThrow();
     });
   });
 });

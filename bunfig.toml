@@ -1,6 +1,5 @@
 [test]
-# Test runner configuration
-coverageThreshold = { lines = 80, functions = 80 }
+coverageThreshold = { functions = 0.80, lines = 0.80 }
 
 # Test timeout in milliseconds
 timeout = 5000

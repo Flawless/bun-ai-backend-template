@@ -99,33 +99,47 @@ app.onError(({ error, code, set }) => {
   };
 });
 
-// Graceful shutdown handling for OpenTelemetry
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+// Testable shutdown handler - extracted from signal handlers
+export async function handleShutdown(signal: string): Promise<void> {
+  logger.info(`${signal} received, shutting down gracefully`);
   await shutdownOTel(sdk);
+}
+
+// Testable server startup logic - extracted from main block
+export function startServer(port: number): void {
+  const environment = process.env.NODE_ENV || 'development';
+  const tracingEnabled = process.env.OTEL_TRACING_ENABLED !== 'false';
+  const serviceName =
+    process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template';
+
+  logger.info(
+    {
+      port,
+      environment,
+      tracing_enabled: tracingEnabled,
+      service_name: serviceName,
+    },
+    'Server starting'
+  );
+
+  app.listen(port);
+}
+
+// Thin signal handler wrappers that call testable functions
+process.on('SIGTERM', async () => {
+  await handleShutdown('SIGTERM');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  await shutdownOTel(sdk);
+  await handleShutdown('SIGINT');
   process.exit(0);
 });
 
 // Start server only when file is run directly (not imported)
 if (import.meta.main) {
   const port = Number(process.env.PORT) || 3000;
-  logger.info(
-    {
-      port,
-      environment: process.env.NODE_ENV || 'development',
-      tracing_enabled: process.env.OTEL_TRACING_ENABLED !== 'false',
-      service_name:
-        process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template',
-    },
-    'Server starting'
-  );
-  app.listen(port);
+  startServer(port);
 }
 
 export default app;

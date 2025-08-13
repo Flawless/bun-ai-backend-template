@@ -9,73 +9,11 @@ import pino from 'pino';
 import { getTraceContext } from './observability.js';
 
 /**
- * Create enhanced logger with trace correlation support
- */
-function createLogger() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const includeLocation = process.env.LOG_INCLUDE_LOCATION !== 'false';
-
-  return pino({
-    level: process.env.LOG_LEVEL || 'info',
-    // Enable pretty printing in development
-    ...(isProduction
-      ? {}
-      : {
-          transport: {
-            target: 'pino-pretty',
-            options: {
-              // Show caller location in pretty format during development
-              include: 'level,time,caller',
-              translateTime: 'SYS:standard',
-            },
-          },
-        }),
-    // Custom mixin to automatically inject trace context and caller info
-    mixin() {
-      const traceContext = getTraceContext();
-      const mixinData: Record<string, unknown> = {};
-
-      // Add trace context if available
-      if (traceContext) {
-        mixinData.trace_id = traceContext.traceId;
-        mixinData.span_id = traceContext.spanId;
-      }
-
-      // Add caller location if enabled (useful for debugging)
-      if (includeLocation) {
-        const caller = getCallerInfo();
-        if (caller) {
-          mixinData.caller = caller;
-        }
-      }
-
-      return mixinData;
-    },
-    // Format timestamps consistently
-    timestamp: pino.stdTimeFunctions.isoTime,
-    // Add correlation ID for request tracking
-    formatters: {
-      level(label) {
-        return { level: label };
-      },
-      bindings(bindings) {
-        return {
-          pid: bindings.pid,
-          hostname: bindings.hostname,
-          service:
-            process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template',
-          version: process.env.OTEL_SERVICE_VERSION || process.env.npm_package_version || '1.0.0',
-        };
-      },
-    },
-  });
-}
-
-/**
  * Get caller information for debugging
  * Returns file name, function name, and line number
+ * Exported for direct testing
  */
-function getCallerInfo(): string | undefined {
+export function getCallerInfo(): string | undefined {
   try {
     const stack = new Error().stack;
     if (!stack) return undefined;
@@ -102,9 +40,90 @@ function getCallerInfo(): string | undefined {
 }
 
 /**
+ * Create mixin data with trace context and caller info
+ * Exported for direct testing
+ */
+export function createLogMixin(includeLocation = true): Record<string, unknown> {
+  const traceContext = getTraceContext();
+  const mixinData: Record<string, unknown> = {};
+
+  // Add trace context if available
+  if (traceContext) {
+    mixinData.trace_id = traceContext.traceId;
+    mixinData.span_id = traceContext.spanId;
+  }
+
+  // Add caller location if enabled (useful for debugging)
+  if (includeLocation) {
+    const caller = getCallerInfo();
+    if (caller) {
+      mixinData.caller = caller;
+    }
+  }
+
+  return mixinData;
+}
+
+/**
+ * Create enhanced logger with trace correlation support
+ */
+function createLogger() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const includeLocation = process.env.LOG_INCLUDE_LOCATION !== 'false';
+
+  return pino({
+    level: process.env.LOG_LEVEL || 'info',
+    // Enable pretty printing in development
+    ...(isProduction
+      ? {}
+      : {
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              // Show caller location in pretty format during development
+              include: 'level,time,caller',
+              translateTime: 'SYS:standard',
+            },
+          },
+        }),
+    // Custom mixin to automatically inject trace context and caller info
+    mixin: () => createLogMixin(includeLocation),
+    // Format timestamps consistently
+    timestamp: pino.stdTimeFunctions.isoTime,
+    // Add correlation ID for request tracking
+    formatters: {
+      level(label) {
+        return { level: label };
+      },
+      bindings(bindings) {
+        return {
+          pid: bindings.pid,
+          hostname: bindings.hostname,
+          service:
+            process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template',
+          version: process.env.OTEL_SERVICE_VERSION || process.env.npm_package_version || '1.0.0',
+        };
+      },
+    },
+  });
+}
+
+/**
+ * Lazy logger initialization to avoid import-time errors
+ */
+let _logger: pino.Logger | null = null;
+
+/**
  * Global logger instance with trace correlation
  */
-export const logger = createLogger();
+export const logger = new Proxy({} as pino.Logger, {
+  get(_target, prop) {
+    if (!_logger) {
+      _logger = createLogger();
+    }
+    return _logger[prop as keyof pino.Logger];
+  },
+});
 
 /**
  * Create child logger with additional context
