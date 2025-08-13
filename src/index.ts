@@ -1,14 +1,36 @@
+// Initialize OpenTelemetry FIRST (before any other imports)
+import { initializeOTel, shutdownOTel } from './observability.js';
+const sdk = initializeOTel();
+
 import { Elysia } from 'elysia';
-import pino from 'pino';
+import { logger, createChildLogger } from './logger.js';
+import { randomUUID } from 'crypto';
 
-// Initialize structured logger
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  ...(process.env.NODE_ENV === 'production' ? {} : { transport: { target: 'pino-pretty' } }),
-});
+// Initialize Elysia app with request logging middleware
+const app = new Elysia()
+  // Request logging middleware with trace correlation
+  .onRequest(({ request, set }) => {
+    const requestId = randomUUID();
+    const requestLogger = createChildLogger({
+      request_id: requestId,
+      method: request.method,
+      url: request.url,
+      user_agent: request.headers.get('user-agent'),
+    });
 
-// Initialize Elysia app
-const app = new Elysia();
+    // Store logger in context for use in handlers
+    set.headers['x-request-id'] = requestId;
+
+    requestLogger.info('Incoming request');
+  })
+  .onAfterHandle(({ request, set }) => {
+    const requestLogger = createChildLogger({
+      method: request.method,
+      url: request.url,
+      status: set.status || 200,
+    });
+    requestLogger.info('Request completed');
+  });
 
 // Health check endpoint
 app.get('/health', () => ({
@@ -77,10 +99,32 @@ app.onError(({ error, code, set }) => {
   };
 });
 
+// Graceful shutdown handling for OpenTelemetry
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  await shutdownOTel(sdk);
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  await shutdownOTel(sdk);
+  process.exit(0);
+});
+
 // Start server only when file is run directly (not imported)
 if (import.meta.main) {
   const port = Number(process.env.PORT) || 3000;
-  logger.info({ port, environment: process.env.NODE_ENV || 'development' }, 'Server starting');
+  logger.info(
+    {
+      port,
+      environment: process.env.NODE_ENV || 'development',
+      tracing_enabled: process.env.OTEL_TRACING_ENABLED !== 'false',
+      service_name:
+        process.env.OTEL_SERVICE_NAME || process.env.npm_package_name || 'ts-backend-template',
+    },
+    'Server starting'
+  );
   app.listen(port);
 }
 
