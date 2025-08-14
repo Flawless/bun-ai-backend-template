@@ -1,0 +1,211 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type Check
+        run: bun run type-check
+
+      - name: Lint Code
+        run: bun run lint
+
+      - name: Check Formatting
+        run: bun run format:check
+
+      - name: Run Unit Tests
+        run: bun run test:unit
+
+      - name: Run Integration Tests
+        run: bun run test:integration
+
+      - name: Run Contract Tests
+        run: bun run test:contract
+
+      - name: Run E2E Tests
+        run: bun run test:e2e
+
+      - name: Run All Tests
+        run: bun run test
+
+      - name: Test Coverage
+        run: bun run test:coverage
+
+      - name: Validate All
+        run: bun run validate:all
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: coverage/
+          retention-days: 7
+
+      - name: Comment Coverage on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const coveragePath = './coverage/coverage-summary.json';
+
+            if (fs.existsSync(coveragePath)) {
+              const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+              const total = coverage.total;
+              
+              const comment = `## 📊 Coverage Report
+              
+              | Metric | Coverage | Threshold |
+              |--------|----------|-----------|
+              | Lines | ${total.lines.pct}% | 80% |
+              | Branches | ${total.branches.pct}% | 80% |
+              | Functions | ${total.functions.pct}% | 80% |
+              | Statements | ${total.statements.pct}% | 80% |
+              
+              ${total.lines.pct >= 80 && total.branches.pct >= 80 ? '✅ Coverage meets requirements' : '❌ Coverage below 80% threshold'}`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Security Audit
+        run: |
+          bun audit
+          bun run lint --format json > eslint-security-report.json || true
+
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: eslint-security-report.json
+          retention-days: 30
+
+  performance-check:
+    name: Performance Validation
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Application
+        run: bun run build
+
+      - name: Check Bundle Size
+        run: |
+          echo "Bundle size check:"
+          du -sh dist/ || echo "No dist directory found"
+
+      - name: Start Server and Test Performance
+        run: |
+          bun run start &
+          SERVER_PID=$!
+          sleep 5
+
+          # Test health endpoint
+          curl -f http://localhost:3000/health || exit 1
+
+          # Test readiness endpoint
+          curl -f http://localhost:3000/ready || exit 1
+
+          kill $SERVER_PID
+
+  dependency-check:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Check for Outdated Dependencies
+        run: |
+          bun update --dry-run
+
+      - name: License Check
+        run: |
+          echo "Checking licenses..."
+          bun x license-checker --summary --production || true
+
+  require-approval:
+    name: Require Approval
+    runs-on: ubuntu-latest
+    needs: [validate, security-scan, performance-check, dependency-check]
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Check Quality Gates
+        run: |
+          echo "✅ All quality gates passed"
+          echo "PR is ready for review"

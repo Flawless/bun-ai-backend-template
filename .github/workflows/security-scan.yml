@@ -1,0 +1,330 @@
+name: Security Scanning
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'package.json'
+      - 'bun.lockb'
+      - '**/*.ts'
+      - '**/*.js'
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Bun Audit
+        id: bun-audit
+        run: |
+          echo "## Bun Security Audit" > audit-results.txt
+          bun audit 2>&1 | tee -a audit-results.txt || true
+
+          if grep -q "found 0 vulnerabilities" audit-results.txt; then
+            echo "audit_status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "audit_status=failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Audit Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bun-audit-results
+          path: audit-results.txt
+          retention-days: 30
+
+  static-analysis:
+    name: Static Application Security Testing (SAST)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run ESLint Security Plugin
+        id: eslint-security
+        run: |
+          echo "## ESLint Security Analysis" > eslint-security.json
+          bun run lint --format json > eslint-results.json 2>&1 || true
+
+          # Check for security issues
+          if [ -f eslint-results.json ]; then
+            SECURITY_ISSUES=$(cat eslint-results.json | jq '[.[] | .messages[] | select(.ruleId | contains("security"))] | length')
+            if [ "$SECURITY_ISSUES" -gt 0 ]; then
+              echo "security_issues=$SECURITY_ISSUES" >> $GITHUB_OUTPUT
+              echo "status=failed" >> $GITHUB_OUTPUT
+            else
+              echo "security_issues=0" >> $GITHUB_OUTPUT
+              echo "status=passed" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: CodeQL Initialize
+        uses: github/codeql-action/init@v3
+        with:
+          languages: typescript, javascript
+          queries: security-extended
+
+      - name: CodeQL Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:typescript'
+
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    if: false # Enable when Dockerfile is present
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Container Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  license-compliance:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check Licenses
+        run: |
+          echo "## License Compliance Report" > license-report.txt
+          echo "" >> license-report.txt
+          echo "Date: $(date)" >> license-report.txt
+          echo "" >> license-report.txt
+
+          # Install and run license checker
+          bun add -d license-checker
+          bun x license-checker --summary --production --excludePrivatePackages >> license-report.txt 2>&1 || true
+
+          # Check for problematic licenses
+          PROBLEMATIC_LICENSES="GPL|LGPL|AGPL|CC-BY-NC"
+          if grep -E "$PROBLEMATIC_LICENSES" license-report.txt; then
+            echo "⚠️ Potentially problematic licenses detected" >> license-report.txt
+            echo "license_status=warning" >> $GITHUB_OUTPUT
+          else
+            echo "✅ All licenses appear compliant" >> license-report.txt
+            echo "license_status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload License Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-compliance-report
+          path: license-report.txt
+          retention-days: 30
+
+  security-scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard Analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload Scorecard Results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard-results.sarif
+
+  create-issues:
+    name: Create Security Issues
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, static-analysis, secrets-scan, license-compliance]
+    if: |
+      always() && 
+      (needs.dependency-audit.outputs.audit_status == 'failed' ||
+       needs.static-analysis.outputs.status == 'failed' ||
+       needs.license-compliance.outputs.license_status == 'warning')
+
+    steps:
+      - name: Create Security Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const date = new Date().toISOString().split('T')[0];
+            let issueBody = `## 🔒 Security Scan Results - ${date}\n\n`;
+
+            // Check dependency audit
+            if ('${{ needs.dependency-audit.outputs.audit_status }}' === 'failed') {
+              issueBody += `### ❌ Dependency Vulnerabilities Detected\n`;
+              issueBody += `Vulnerabilities were found in project dependencies.\n\n`;
+            }
+
+            // Check static analysis
+            if ('${{ needs.static-analysis.outputs.status }}' === 'failed') {
+              issueBody += `### ❌ Static Analysis Issues\n`;
+              issueBody += `Security issues detected: ${{ needs.static-analysis.outputs.security_issues }}\n\n`;
+            }
+
+            // Check license compliance
+            if ('${{ needs.license-compliance.outputs.license_status }}' === 'warning') {
+              issueBody += `### ⚠️ License Compliance Warning\n`;
+              issueBody += `Potentially problematic licenses detected in dependencies.\n\n`;
+            }
+
+            issueBody += `### Required Actions\n`;
+            issueBody += `1. Review the [security scan results](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})\n`;
+            issueBody += `2. Address identified vulnerabilities\n`;
+            issueBody += `3. Update dependencies if necessary\n`;
+            issueBody += `4. Re-run security scans to verify fixes\n`;
+
+            // Check if similar issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security',
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(issue => 
+              issue.title.includes('Security Scan Alert') && 
+              issue.title.includes(date)
+            );
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Security Scan Alert - ${date}`,
+                body: issueBody,
+                labels: ['security', 'automated', 'high-priority']
+              });
+            }
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, static-analysis, secrets-scan, license-compliance, security-scorecard]
+    if: always()
+
+    steps:
+      - name: Generate Security Report
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered By:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Dependency Audit
+          if [ "${{ needs.dependency-audit.outputs.audit_status }}" == "passed" ]; then
+            echo "- ✅ Dependency Audit: **Passed**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Dependency Audit: **Failed** - Vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Static Analysis
+          if [ "${{ needs.static-analysis.outputs.status }}" == "passed" ]; then
+            echo "- ✅ Static Analysis: **Passed**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Static Analysis: **Failed** - ${{ needs.static-analysis.outputs.security_issues }} issues found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # License Compliance
+          if [ "${{ needs.license-compliance.outputs.license_status }}" == "passed" ]; then
+            echo "- ✅ License Compliance: **Passed**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ License Compliance: **Warning** - Review required" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "- ✅ Secrets Scan: **Completed**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Security Scorecard: **Completed**" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review detailed reports in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "2. Address any identified security issues" >> $GITHUB_STEP_SUMMARY
+          echo "3. Update dependencies with known vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "4. Ensure all security scans pass before deployment" >> $GITHUB_STEP_SUMMARY
