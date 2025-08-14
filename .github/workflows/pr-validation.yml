@@ -62,49 +62,12 @@ jobs:
         run: bun run test
 
       - name: Test Coverage
-        run: bun run test:coverage
+        run: |
+          bun run test:coverage
+          echo "Coverage report generated"
 
       - name: Validate All
         run: bun run validate:all
-
-      - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-reports
-          path: coverage/
-          retention-days: 7
-
-      - name: Comment Coverage on PR
-        uses: actions/github-script@v7
-        if: always()
-        with:
-          script: |
-            const fs = require('fs');
-            const coveragePath = './coverage/coverage-summary.json';
-
-            if (fs.existsSync(coveragePath)) {
-              const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
-              const total = coverage.total;
-              
-              const comment = `## 📊 Coverage Report
-              
-              | Metric | Coverage | Threshold |
-              |--------|----------|-----------|
-              | Lines | ${total.lines.pct}% | 80% |
-              | Branches | ${total.branches.pct}% | 80% |
-              | Functions | ${total.functions.pct}% | 80% |
-              | Statements | ${total.statements.pct}% | 80% |
-              
-              ${total.lines.pct >= 80 && total.branches.pct >= 80 ? '✅ Coverage meets requirements' : '❌ Coverage below 80% threshold'}`;
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            }
 
   security-scan:
     name: Security Scanning
