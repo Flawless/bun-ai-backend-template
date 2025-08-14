@@ -7,7 +7,9 @@
   "scripts": {
     "start": "bun run dist/index.js",
     "start:dev": "bun run --hot src/index.ts",
+    "start:binary": "./server",
     "build": "bun build src/index.ts --outdir dist --target bun",
+    "build:binary": "bun build src/index.ts --compile --minify-whitespace --minify-syntax --target bun --outfile server",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:check": "eslint . --max-warnings 0",

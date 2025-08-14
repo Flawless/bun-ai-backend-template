@@ -87,7 +87,7 @@ else
             # Report if any checks failed
             if [ -n "$FAILED_CHECKS" ]; then
                 echo "❌ FAILED CHECKS: $FAILED_CHECKS" >&2
-                exit 1
+                exit 2
             fi
             
         elif [[ "$ext" == "json" || "$ext" == "md" || "$ext" == "yaml" || "$ext" == "yml" ]]; then

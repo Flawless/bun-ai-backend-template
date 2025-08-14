@@ -1,5 +1,7 @@
 [test]
 coverageThreshold = { functions = 0.80, lines = 0.80 }
+# Exclude index.ts from coverage since it's just a bootstrap file
+coveragePathIgnorePatterns = ["src/index.ts"]
 
 # Test timeout in milliseconds
 timeout = 5000

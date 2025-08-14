@@ -162,6 +162,7 @@ jobs:
 
       - name: Run Performance Tests
         run: |
+          # Test with production build
           PORT=8080 bun run start &
           SERVER_PID=$!
           sleep 5

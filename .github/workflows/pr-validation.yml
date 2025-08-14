@@ -156,13 +156,21 @@ jobs:
       - name: Build Application
         run: bun run build
 
-      - name: Check Bundle Size
-        run: |
-          echo "Bundle size check:"
-          du -sh dist/ || echo "No dist directory found"
+      - name: Build Binary
+        run: bun run build:binary
 
-      - name: Start Server and Test Performance
+      - name: Check Build Sizes
         run: |
+          echo "## Build Size Analysis"
+          echo "JavaScript bundle:"
+          du -sh dist/ || echo "No dist directory found"
+          echo ""
+          echo "Compiled binary:"
+          ls -lh server
+
+      - name: Test JavaScript Build
+        run: |
+          # Test with production JavaScript build
           PORT=8080 bun run start &
           SERVER_PID=$!
           sleep 5
@@ -172,6 +180,21 @@ jobs:
 
           # Test readiness endpoint
           curl -f http://localhost:8080/ready || exit 1
+
+          kill $SERVER_PID
+
+      - name: Test Compiled Binary
+        run: |
+          # Test with compiled binary
+          PORT=8081 ./server &
+          SERVER_PID=$!
+          sleep 5
+
+          # Test health endpoint
+          curl -f http://localhost:8081/health || exit 1
+
+          # Test readiness endpoint
+          curl -f http://localhost:8081/ready || exit 1
 
           kill $SERVER_PID
 
