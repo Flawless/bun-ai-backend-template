@@ -34,7 +34,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Type Check
         run: bun run type-check
@@ -78,7 +78,7 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Run Security Audit
         run: bun audit
@@ -110,7 +110,7 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Generate Coverage Report
         run: |
@@ -155,14 +155,14 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Build Application
         run: bun run build
 
       - name: Run Performance Tests
         run: |
-          bun run start &
+          PORT=8080 bun run start &
           SERVER_PID=$!
           sleep 5
 
@@ -171,14 +171,14 @@ jobs:
 
           # Health check
           HEALTH_START=$(date +%s%N)
-          curl -f http://localhost:3000/health
+          curl -f http://localhost:8080/health
           HEALTH_END=$(date +%s%N)
           HEALTH_TIME=$((($HEALTH_END - $HEALTH_START) / 1000000))
           echo "- Health endpoint: ${HEALTH_TIME}ms" >> $GITHUB_STEP_SUMMARY
 
           # Readiness check
           READY_START=$(date +%s%N)
-          curl -f http://localhost:3000/ready
+          curl -f http://localhost:8080/ready
           READY_END=$(date +%s%N)
           READY_TIME=$((($READY_END - $READY_START) / 1000000))
           echo "- Ready endpoint: ${READY_TIME}ms" >> $GITHUB_STEP_SUMMARY

@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Type Check
         run: bun run type-check
@@ -121,7 +121,7 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Run Security Audit
         run: |
@@ -151,7 +151,7 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Build Application
         run: bun run build
@@ -163,15 +163,15 @@ jobs:
 
       - name: Start Server and Test Performance
         run: |
-          bun run start &
+          PORT=8080 bun run start &
           SERVER_PID=$!
           sleep 5
 
           # Test health endpoint
-          curl -f http://localhost:3000/health || exit 1
+          curl -f http://localhost:8080/health || exit 1
 
           # Test readiness endpoint
-          curl -f http://localhost:3000/ready || exit 1
+          curl -f http://localhost:8080/ready || exit 1
 
           kill $SERVER_PID
 
@@ -191,7 +191,8 @@ jobs:
 
       - name: Check for Outdated Dependencies
         run: |
-          bun update --dry-run
+          echo "Checking for outdated dependencies..."
+          bun outdated || true
 
       - name: License Check
         run: |
