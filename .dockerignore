@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build outputs
+dist/
+server
+*.log
+
+# Development files
+.git/
+.github/
+.husky/
+.claude/
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+docs/
+@concepts/
+@adr/
+@tasks/
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# Docker files (don't copy into image)
+Dockerfile*
+docker-compose*
+.dockerignore

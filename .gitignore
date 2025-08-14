@@ -1,11 +1,12 @@
 # Dependencies
 node_modules/
-bun.lockb
 
 # Build outputs
 dist/
 build/
 *.tsbuildinfo
+server
+server.exe
 
 # Test coverage
 coverage/
@@ -32,6 +33,7 @@ bun-debug.log*
 *.swp
 *.swo
 *~
+.claude/settings.local.json
 
 # OS generated files
 .DS_Store

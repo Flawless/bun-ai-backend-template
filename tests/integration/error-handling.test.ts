@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { app } from '../../src/index.js';
+import { app } from '../../src/app.js';
 import { Elysia } from 'elysia';
 
 describe('Error Handling Integration', () => {
