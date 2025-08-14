@@ -9,7 +9,7 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 
 # Install dependencies (including dev dependencies for building)
 RUN bun install --frozen-lockfile --ignore-scripts
