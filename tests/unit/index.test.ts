@@ -45,19 +45,7 @@ describe('Main Application Functions', () => {
 
       expect(response).toMatchObject({
         status: 'ready',
-        latency: 0,
-        dependencies: {
-          database: {
-            status: 'healthy',
-            latency: 0,
-            endpoint: 'database:5432',
-          },
-          email: {
-            status: 'healthy',
-            latency: 0,
-            endpoint: 'smtp.service.com:587',
-          },
-        },
+        dependencies: {},
       });
       expect(response.timestamp).toBeDefined();
     });

@@ -29,6 +29,8 @@ RUN bun run type-check && \
     bun run test
 
 # Build the application to a single binary
+# Set NODE_ENV to production to avoid pino-pretty transport issue
+ENV NODE_ENV=production
 RUN bun build src/index.ts \
     --compile \
     --minify-whitespace \

@@ -27,7 +27,7 @@ export const app = new Elysia()
     });
     requestLogger.info('Request completed');
   })
-  // Health check endpoint
+  // Health check endpoint - simple OK response
   .get('/health', () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -35,30 +35,12 @@ export const app = new Elysia()
     environment: process.env.NODE_ENV || 'development',
     version: process.env.npm_package_version || '1.0.0',
   }))
-  // Readiness check endpoint with dependencies monitoring
-  .get('/ready', () => {
-    const timestamp = new Date().toISOString();
-
-    return {
-      status: 'ready',
-      timestamp,
-      latency: 0,
-      dependencies: {
-        database: {
-          status: 'healthy',
-          latency: 0,
-          last_checked: timestamp,
-          endpoint: 'database:5432',
-        },
-        email: {
-          status: 'healthy',
-          latency: 0,
-          last_checked: timestamp,
-          endpoint: 'smtp.service.com:587',
-        },
-      },
-    };
-  })
+  // Readiness check endpoint - returns ready with empty dependencies
+  .get('/ready', () => ({
+    status: 'ready',
+    timestamp: new Date().toISOString(),
+    dependencies: {},
+  }))
   // Root endpoint
   .get('/', () => ({
     message: 'Welcome to the TypeScript Backend Template',
