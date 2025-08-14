@@ -20,6 +20,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
+      actions: read
 
     steps:
       - name: Checkout Repository
@@ -109,6 +111,7 @@ jobs:
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
 
