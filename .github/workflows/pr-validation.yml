@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Quality Gates
+  type-check:
+    name: Type Check
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
 
@@ -37,40 +37,223 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile --ignore-scripts
 
-      - name: Type Check
+      - name: Run Type Check
         run: bun run type-check
 
-      - name: Lint Code
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Run Linter
         run: bun run lint
+
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Check Formatting
         run: bun run format:check
 
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
       - name: Run Unit Tests
         run: bun run test:unit
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Run Integration Tests
         run: bun run test:integration
 
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
       - name: Run Contract Tests
         run: bun run test:contract
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
 
       - name: Run E2E Tests
         run: bun run test:e2e
 
-      - name: Run All Tests
-        run: bun run test
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
 
-      - name: Test Coverage
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Run Test Coverage
         run: |
           bun run test:coverage
           echo "Coverage report generated"
 
-      - name: Validate All
-        run: bun run validate:all
-
-  security-scan:
-    name: Security Scanning
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
 
@@ -99,8 +282,8 @@ jobs:
           path: eslint-security-report.json
           retention-days: 30
 
-  performance-check:
-    name: Performance Validation
+  build-test:
+    name: Build & Test
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
 
@@ -161,8 +344,8 @@ jobs:
 
           kill $SERVER_PID
 
-  dependency-check:
-    name: Dependency Analysis
+  dependencies:
+    name: Dependency Check
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
 
@@ -184,15 +367,3 @@ jobs:
         run: |
           echo "Checking licenses..."
           bun x license-checker --summary --production || true
-
-  require-approval:
-    name: Require Approval
-    runs-on: ubuntu-latest
-    needs: [validate, security-scan, performance-check, dependency-check]
-    if: github.event.pull_request.draft == false
-
-    steps:
-      - name: Check Quality Gates
-        run: |
-          echo "✅ All quality gates passed"
-          echo "PR is ready for review"
